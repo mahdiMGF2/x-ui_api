@@ -1,11 +1,14 @@
 import json
 import sqlite3
 from datetime import datetime, timedelta
-
+import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, status, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
+import socket
+import fcntl
+import struct
 
 app = FastAPI(title="x-ui Mirza", version="0.0.1")
 admin = APIRouter()
@@ -38,6 +41,18 @@ class TokenData(BaseModel):
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="admin/token")
+
+def get_ip_address(ifname):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        ip_address = socket.inet_ntoa(fcntl.ioctl(
+            sock.fileno(),
+            0x8915, 
+            struct.pack('256s', ifname[:15].encode('utf-8'))
+        )[20:24])
+        return ip_address
+    finally:
+        sock.close()
 
 
 def get_user(db, username: str):
@@ -142,3 +157,6 @@ def Get_Date_User(username, current_user: User = Depends(get_current_user)):
 
 app.include_router(admin, prefix="/admin", tags=["Admin"])
 app.include_router(users, prefix="/users", tags=["Users"])
+ip = get_ip_address("eth0")
+if __name__ == "__main__":
+    uvicorn.run("main:app", host=ip, port=8000, log_level="info")
